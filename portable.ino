@@ -5,14 +5,18 @@ const int START_MESS = 0;
 const int END_MESS = 1;
 const char START_CH = '~';
 const char STOP_CH = '$';
-const int buttonNextCard = 8;
-const int buttonClearQueue = 9;
+const int btn2 = 8;
+const int btn1 = 7;
+const int btn4 = 6;
+const int btn3 = 5;
 const int led         = 4;
 const String MESS_RESIEVE_ANSWER = "MR";
 
 int state = -1;
 
-const boolean debug = true;
+
+const boolean debug = false;
+
 int bluetoothTx = 2;
 int bluetoothRx = 3;
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
@@ -93,7 +97,6 @@ boolean addCard(String cardNum) {
   } else {
     queue[q_size] = cardNum;
     if (debug) {
-      Serial.print(cardNum);
       Serial.println(" Add to queue!");
     }
     q_size++;
@@ -113,6 +116,9 @@ String getNextCard() {
 }
 
 void resetQueuePointer() {
+  if (debug) {
+    Serial.println("Pointer reset");
+  }
   q_pointer = 0;
 }
 
@@ -122,6 +128,11 @@ void clearQueue() {
   }
   q_pointer = 0;
   q_size = 0;
+
+  if (debug) {
+    Serial.println("Queue cleared");
+  }
+  delay(500);
 }
 
 void printCardQueue() {
@@ -133,11 +144,15 @@ void printCardQueue() {
 
 //-----------------------------------------------------------------
 void setup() {
-  pinMode(buttonNextCard, INPUT);
-  pinMode(buttonClearQueue, INPUT);
-  pinMode(led, OUTPUT);
+
   Serial.begin(9600);
   bluetooth.begin(9600);
+
+  pinMode(btn1, INPUT_PULLUP);
+  pinMode(btn2, INPUT_PULLUP);
+  pinMode(btn3, INPUT_PULLUP);
+  pinMode(btn4, INPUT_PULLUP);
+  pinMode(led, OUTPUT);
 
   while (!Serial) {}
 
@@ -149,9 +164,25 @@ void setup() {
     Serial.write(bluetooth.read());
   }
 
-  delay(100);
 
+  delay(200);
+  Serial.println("");
+  bluetooth.write("AT+IMME0");
+  delay(500);
+  while (bluetooth.available()) {
+    Serial.write(bluetooth.read());
+  }
+  Serial.println("");
 
+  delay(200);
+  Serial.println("");
+  bluetooth.write("AT+ROLE0");
+  delay(500);
+  while (bluetooth.available()) {
+    Serial.write(bluetooth.read());
+  }
+
+  delay(200);
   bluetooth.write("AT+POWE3");
   delay(500);
   while (bluetooth.available())
@@ -239,6 +270,27 @@ void sendMessRecieved() {
     bluetooth.write(MESS_RESIEVE_ANSWER[idx]);
 }
 
+void disconnect() {
+  bluetooth.write("AT");
+
+  delay(500);
+  while (bluetooth.available())
+  {
+    String answer = bluetooth.readString();
+    if (answer.indexOf("OK") > 0) {
+      if (debug) {
+        Serial.println("disconnected");
+      }
+
+    }
+    if (debug) {
+      Serial.println("coud not disconnected");
+    }
+  }
+
+
+}
+
 void loop()
 {
 
@@ -271,33 +323,42 @@ void loop()
 
   }
 
-  //const int buttonNextCard = 8;
-  //const int buttonClearQueue = 9;
-  int nextCardPressed = digitalRead(buttonNextCard);
 
-  int clearQPressed = digitalRead(buttonClearQueue);
+  int nextCardPressed = digitalRead(btn1);
 
-  if (clearQPressed) {
+  int resetPoinetr = digitalRead(btn2);
+
+  int clearQPressed = digitalRead(btn3);
+
+  int disconnectPressed = digitalRead(btn4);
+
+
+  if (!disconnectPressed) {
+    disconnect();
+  }
+
+  if (!clearQPressed) {
+    clearQueue();
+  }
+
+  if (!resetPoinetr) {
     resetQueuePointer();
     delay(500);
   }
 
 
-  if (nextCardPressed) {
-    boolean connected = hasBLEConnected();
-    if (connected) {
+  if (!nextCardPressed) {
+//    boolean connected = hasBLEConnected();
+//    if (connected) {
       String cardStr = getNextCard();
-      if (debug) {
-        Serial.println("Sending card number :" + cardStr);
-      }
-
-      bluetooth.write(START_CH);
+      Serial.println(cardStr);
+//      bluetooth.write(START_CH);
       for (int i = 0; i < cardStr.length(); i++)
       {
         bluetooth.write(cardStr[i]);
       }
-      bluetooth.write(STOP_CH);
-    }
+//      bluetooth.write(STOP_CH);
+//    }
     delay(500);
   }
 }
